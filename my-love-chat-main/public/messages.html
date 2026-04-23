@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Z-SPACE | Messages</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        :root { --primary: #00f2ff; --bg: #050508; --card: #0d1117; }
+        body { background: var(--bg); color: white; font-family: sans-serif; margin: 0; }
+        .nav-header { padding: 20px; background: #0a0a0a; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #222; position: sticky; top: 0; z-index: 100; }
+        .logo { font-size: 22px; font-weight: bold; color: var(--primary); text-shadow: 0 0 10px var(--primary); }
+        
+        .chat-list { padding: 10px; }
+        .chat-item { display: flex; align-items: center; padding: 15px; background: var(--card); border-radius: 15px; margin-bottom: 10px; cursor: pointer; border: 1px solid transparent; transition: 0.3s; text-decoration: none; color: white; position: relative; }
+        .chat-item:hover { border-color: var(--primary); background: #161b22; }
+        
+        .avatar { width: 55px; height: 55px; border-radius: 50%; border: 2px solid #222; margin-right: 15px; object-fit: cover; background: #222; }
+        .chat-info { flex: 1; overflow: hidden; }
+        .chat-info h4 { margin: 0 0 5px; font-size: 16px; display: flex; justify-content: space-between; }
+        .chat-info h4 span { font-size: 11px; color: #555; font-weight: normal; }
+        .chat-info p { margin: 0; font-size: 13px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        
+        .unread-dot { width: 10px; height: 10px; background: var(--primary); border-radius: 50%; position: absolute; right: 20px; bottom: 20px; box-shadow: 0 0 10px var(--primary); }
+        
+        .fab { position: fixed; bottom: 30px; right: 25px; background: var(--primary); width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: black; font-size: 24px; box-shadow: 0 0 20px rgba(0,242,255,0.4); cursor: pointer; border: none; z-index: 99; transition: 0.3s; }
+        .fab:active { transform: scale(0.9); }
+    </style>
+</head>
+<body>
+
+    <div class="nav-header">
+        <div class="logo">Z-SPACE</div>
+        <div style="display: flex; gap: 20px;">
+            <i class="fas fa-search" onclick="searchUser()"></i>
+            <a href="settings" style="color:white;"><i class="fas fa-cog"></i></a>
+        </div>
+    </div>
+
+    <div class="chat-list" id="chat-list">
+        <p style="text-align: center; color: #444; margin-top: 100px;">Loading conversations...</p>
+    </div>
+
+    <button class="fab" onclick="newChat()">
+        <i class="fas fa-comment-medical"></i>
+    </button>
+
+    <script>
+        const myPhone = localStorage.getItem('user_phone');
+        const token = localStorage.getItem('token');
+
+        async function loadChats() {
+            try {
+                if (!token) { window.location.href = '/'; return; }
+
+                const res = await fetch('/api/conversations', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (!res.ok) throw new Error("Failed to load");
+                
+                const chats = await res.json();
+                const listContainer = document.getElementById('chat-list');
+
+                if (chats.length === 0) {
+                    listContainer.innerHTML = `
+                        <div style="text-align: center; margin-top: 100px;">
+                            <i class="fas fa-comments" style="font-size: 50px; color: #222; margin-bottom: 15px;"></i>
+                            <p style="color: #444;">No messages yet. Start a new chat!</p>
+                        </div>`;
+                    return;
+                }
+
+                listContainer.innerHTML = chats.map(chat => {
+                    const time = new Date(chat.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    return `
+                        <a href="inbox.html?user=${chat.phone}" class="chat-item">
+                            <img src="${chat.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + chat.phone}" class="avatar">
+                            <div class="chat-info">
+                                <h4>${chat.name} <span>${time}</span></h4>
+                                <p>${chat.lastMsg}</p>
+                            </div>
+                            ${chat.unread ? '<div class="unread-dot"></div>' : ''}
+                        </a>
+                    `;
+                }).join('');
+
+            } catch (err) {
+                console.error("Error loading chats:", err);
+                document.getElementById('chat-list').innerHTML = '<p style="text-align: center; color: red; margin-top: 100px;">Connection Error!</p>';
+            }
+        }
+
+        function newChat() {
+            const p = prompt("Enter User Phone Number:");
+            if(p) {
+                if(p === myPhone) {
+                    alert("You cannot chat with yourself!");
+                } else {
+                    window.location.href = `inbox.html?user=${p}`;
+                }
+            }
+        }
+
+        function searchUser() {
+            alert("Search feature is being integrated with backend...");
+        }
+
+        // စာမျက်နှာဖွင့်တာနဲ့ စာရင်းကို ဆွဲတင်မယ်
+        loadChats();
+
+        // ၅ စက္ကန့်တစ်ခါ အလိုအလျောက် စာရင်းအသစ်စစ်မယ် (Real-time Feel ရအောင်)
+        setInterval(loadChats, 5000);
+    </script>
+</body>
+</html>

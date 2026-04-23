@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Z-SPACE CALL</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/simple-peer/9.11.1/simplepeer.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        :root { --primary: #00f2ff; --danger: #ff4b2b; --bg: #050508; }
+        body { margin: 0; background: var(--bg); color: white; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        .call-screen { position: relative; flex: 1; display: flex; justify-content: center; align-items: center; background: #000; }
+        #remote-video { width: 100%; height: 100%; object-fit: cover; background: #111; }
+        #local-video { position: absolute; top: 20px; right: 20px; width: 110px; height: 150px; border-radius: 12px; border: 2px solid var(--primary); object-fit: cover; background: #222; z-index: 10; }
+        
+        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.9); z-index: 20; }
+        .peer-avatar { width: 120px; height: 120px; border-radius: 50%; border: 3px solid var(--primary); margin-bottom: 20px; object-fit: cover; box-shadow: 0 0 20px var(--primary); }
+        .status-text { font-size: 16px; color: var(--primary); letter-spacing: 2px; text-transform: uppercase; animation: pulse 1.5s infinite; }
+        
+        .controls { position: absolute; bottom: 40px; display: flex; gap: 20px; z-index: 30; }
+        .btn { width: 60px; height: 60px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; font-size: 22px; cursor: pointer; transition: 0.3s; color: white; }
+        .btn-hangup { background: var(--danger); }
+        .btn-mute { background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); }
+        .btn-accept { background: #00ff88; color: black; }
+        .btn:active { transform: scale(0.9); }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <div class="call-screen">
+        <video id="remote-video" autoplay playsinline></video>
+        <video id="local-video" autoplay muted playsinline></video>
+
+        <div id="incoming-overlay" class="overlay" style="display: none;">
+            <img id="caller-img" src="https://via.placeholder.com/150" class="peer-avatar">
+            <h3 id="caller-name">Unknown</h3>
+            <p class="status-text">Incoming Call...</p>
+            <div class="controls">
+                <button id="accept-btn" class="btn btn-accept" onclick="answerCall()"><i class="fas fa-phone"></i></button>
+                <button class="btn btn-hangup" onclick="endCall()"><i class="fas fa-phone-slash"></i></button>
+            </div>
+        </div>
+
+        <div id="outgoing-overlay" class="overlay" style="display: none;">
+            <img id="peer-img-call" src="https://via.placeholder.com/150" class="peer-avatar">
+            <h3 id="peer-name-call">User</h3>
+            <p class="status-text">Calling...</p>
+            <div class="controls">
+                <button class="btn btn-hangup" onclick="endCall()"><i class="fas fa-phone-slash"></i></button>
+            </div>
+        </div>
+
+        <div id="ongoing-controls" class="controls" style="display: none;">
+            <button class="btn btn-mute" onclick="toggleMute()"><i id="mic-icon" class="fas fa-microphone"></i></button>
+            <button class="btn btn-mute" onclick="toggleVideo()"><i id="vid-icon" class="fas fa-video"></i></button>
+            <button class="btn btn-mute" id="share-btn" onclick="shareScreen()"><i class="fas fa-desktop"></i></button>
+            <button class="btn btn-hangup" onclick="endCall()"><i class="fas fa-phone-slash"></i></button>
+        </div>
+    </div>
+
+    <audio id="ringtone" src="https://assets.mixkit.co/active_storage/sfx/1359/1359-preview.mp3" loop></audio>
+
+    <script>
+        const token = localStorage.getItem('token');
+        const socket = io({ auth: { token } });
+        const myPhone = localStorage.getItem('user_phone');
+        const params = new URLSearchParams(window.location.search);
+        const peerPhone = params.get('user');
+        const isCaller = params.get('caller') === 'true';
+        const callType = params.get('type') || 'video';
+
+        let localStream;
+        let peer;
+        let incomingSignalData;
+
+        // ✅ WebRTC Config: STUN Servers (Internet ပေါ်မှာ ချိတ်ဆက်မိအောင် လိုအပ်တယ်)
+        const peerConfig = {
+            config: {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' }
+                ]
+            }
+        };
+
+        async function init() {
+            try {
+                // ၁။ Media ယူမယ်
+                localStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: callType === 'video', 
+                    audio: true 
+                });
+                document.getElementById('local-video').srcObject = localStream;
+
+                // ၂။ တစ်ဖက်လူ Data ယူမယ်
+                const res = await fetch(`/api/user/${peerPhone}`, { headers: { 'Authorization': `Bearer ${token}` } });
+                const user = await res.json();
+                if(user) {
+                    const avatar = user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${peerPhone}`;
+                    document.getElementById('peer-name-call').innerText = user.name;
+                    document.getElementById('caller-name').innerText = user.name;
+                    document.getElementById('peer-img-call').src = avatar;
+                    document.getElementById('caller-img').src = avatar;
+                }
+
+                if (isCaller) {
+                    document.getElementById('outgoing-overlay').style.display = 'flex';
+                    startCall();
+                } else {
+                    document.getElementById('incoming-overlay').style.display = 'flex';
+                    document.getElementById('ringtone').play().catch(e => {});
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Camera/Mic ပိတ်ထားလို့ မရဘူး သားကြီး!");
+                window.location.href = '/messages';
+            }
+        }
+
+        // --- Caller Side ---
+        function startCall() {
+            peer = new SimplePeer({ initiator: true, trickle: false, stream: localStream, ...peerConfig });
+            peer.on('signal', data => {
+                socket.emit('call-user', { userToCall: peerPhone, signalData: data, from: myPhone, type: callType });
+            });
+            peer.on('stream', stream => {
+                document.getElementById('remote-video').srcObject = stream;
+                hideOverlays();
+            });
+        }
+
+        // --- Receiver Side ---
+        socket.on('incoming-call', (data) => {
+            if (data.from === peerPhone) incomingSignalData = data.signal;
+        });
+
+        function answerCall() {
+            document.getElementById('ringtone').pause();
+            peer = new SimplePeer({ initiator: false, trickle: false, stream: localStream, ...peerConfig });
+            peer.on('signal', signal => {
+                socket.emit('answer-call', { signal, to: peerPhone });
+            });
+            peer.on('stream', stream => {
+                document.getElementById('remote-video').srcObject = stream;
+                hideOverlays();
+            });
+            peer.signal(incomingSignalData);
+        }
+
+        socket.on('call-accepted', signal => {
+            if(peer) peer.signal(signal);
+            hideOverlays();
+        });
+
+        // --- Controls ---
+        function toggleMute() {
+            const track = localStream.getAudioTracks()[0];
+            track.enabled = !track.enabled;
+            document.getElementById('mic-icon').className = track.enabled ? 'fas fa-microphone' : 'fas fa-microphone-slash';
+        }
+
+        function toggleVideo() {
+            const track = localStream.getVideoTracks()[0];
+            track.enabled = !track.enabled;
+            document.getElementById('vid-icon').className = track.enabled ? 'fas fa-video' : 'fas fa-video-slash';
+        }
+
+        async function shareScreen() {
+            try {
+                const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+                const screenTrack = screenStream.getVideoTracks()[0];
+                if (peer) peer.replaceTrack(localStream.getVideoTracks()[0], screenTrack, localStream);
+                document.getElementById('local-video').srcObject = screenStream;
+                screenTrack.onended = () => {
+                    peer.replaceTrack(screenTrack, localStream.getVideoTracks()[0], localStream);
+                    document.getElementById('local-video').srcObject = localStream;
+                };
+            } catch (err) { console.error(err); }
+        }
+
+        function hideOverlays() {
+            document.querySelectorAll('.overlay').forEach(o => o.style.display = 'none');
+            document.getElementById('ongoing-controls').style.display = 'flex';
+        }
+
+        function endCall() {
+            socket.emit('end-call', { to: peerPhone });
+            stopStream();
+            window.location.href = `/messages?user=${peerPhone}`;
+        }
+
+        socket.on('call-ended', () => {
+            stopStream();
+            window.location.href = `/messages?user=${peerPhone}`;
+        });
+
+        function stopStream() {
+            if (localStream) localStream.getTracks().forEach(t => t.stop());
+            if (peer) peer.destroy();
+        }
+
+        init();
+    </script>
+</body>
+</html>

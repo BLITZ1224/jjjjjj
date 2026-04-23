@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security | Z-SPACE</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        :root { --primary: #00f2ff; --bg: #050508; --card: #0d1117; }
+        body { background: var(--bg); color: white; font-family: sans-serif; display: flex; justify-content: center; padding-top: 30px; }
+        .container { width: 340px; }
+        .card { background: var(--card); padding: 20px; border-radius: 20px; border: 1px solid #222; margin-top: 20px; }
+        h4 { margin: 0 0 15px; color: var(--primary); font-size: 14px; }
+        select { width: 100%; background: #161b22; border: 1px solid #333; padding: 12px; color: white; border-radius: 12px; outline: none; }
+        .apply-btn { width: 100%; background: var(--primary); color: black; border: none; padding: 15px; border-radius: 12px; font-weight: bold; cursor: pointer; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h3>Privacy Settings</h3>
+        <div class="card">
+            <h4>Phone Number Visibility</h4>
+            <select id="privacy-select">
+                <option value="Everyone">Everyone (Public)</option>
+                <option value="Nobody">Nobody (Hidden)</option>
+            </select>
+        </div>
+        <button class="apply-btn" onclick="update()">APPLY PRIVACY CHANGE</button>
+    </div>
+
+    <script>
+        const phone = localStorage.getItem('user_phone');
+        async function update() {
+            const val = document.getElementById('privacy-select').value;
+            await fetch('/api/user/update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone, privacy: { showNumber: val } })
+            });
+            alert("Privacy Updated! 🛡️");
+        }
+    </script>
+</body>
+</html>

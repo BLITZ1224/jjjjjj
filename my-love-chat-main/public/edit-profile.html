@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Profile | Z-SPACE</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        :root { --primary: #00f2ff; --bg: #050508; --card: #0d1117; }
+        body { background: var(--bg); color: white; font-family: sans-serif; display: flex; justify-content: center; padding: 20px; }
+        .container { width: 100%; max-width: 400px; background: var(--card); padding: 30px; border-radius: 25px; border: 1px solid #222; }
+        .avatar-sec { text-align: center; margin-bottom: 25px; position: relative; }
+        .avatar-sec img { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 3px solid var(--primary); }
+        .cam-btn { position: absolute; bottom: 5px; right: 35%; background: var(--primary); color: black; width: 35px; height: 35px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        .input-group { margin-bottom: 20px; }
+        label { display: block; font-size: 10px; color: #555; margin-bottom: 8px; letter-spacing: 1px; }
+        input, textarea { width: 100%; background: #161b22; border: 1px solid #30363d; padding: 12px; border-radius: 12px; color: white; outline: none; box-sizing: border-box; }
+        .save-btn { width: 100%; background: var(--primary); color: black; border: none; padding: 15px; border-radius: 12px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="avatar-sec">
+            <img id="preview" src="https://via.placeholder.com/150">
+            <label for="file-in" class="cam-btn"><i class="fas fa-camera"></i></label>
+            <input type="file" id="file-in" hidden accept="image/*" onchange="previewFile()">
+        </div>
+        <div class="input-group">
+            <label>DISPLAY NAME</label>
+            <input type="text" id="name" placeholder="Username">
+        </div>
+        <div class="input-group">
+            <label>BIO</label>
+            <textarea id="bio" rows="2" placeholder="Tell us about yourself..."></textarea>
+        </div>
+        <button class="save-btn" onclick="save()">UPDATE Z-SPACE IDENTITY</button>
+    </div>
+
+    <script>
+        const phone = localStorage.getItem('user_phone');
+        let base64Img = "";
+
+        window.onload = async () => {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`/api/user/${phone}`, {
+                headers: {
+                    'Authorization': token ? `Bearer ${token}` : ''
+                }
+            });
+            const user = await res.json();
+            if(user) {
+                document.getElementById('name').value = user.name || "";
+                document.getElementById('bio').value = user.bio || "";
+                document.getElementById('preview').src = user.avatar || "https://via.placeholder.com/150";
+                base64Img = user.avatar;
+            }
+        };
+
+        function previewFile() {
+            const file = document.querySelector('#file-in').files[0];
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                base64Img = reader.result;
+                document.getElementById('preview').src = base64Img;
+            };
+            if (file) reader.readAsDataURL(file);
+        }
+
+        async function save() {
+            const data = {
+                phone,
+                name: document.getElementById('name').value,
+                bio: document.getElementById('bio').value,
+                avatar: base64Img
+            };
+            const token = localStorage.getItem('token');
+            await fetch('/api/user/update', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': token ? `Bearer ${token}` : ''
+                },
+                body: JSON.stringify(data)
+            });
+            alert("Profile Updated! ✅");
+            window.location.href = "dashboard.html";
+        }
+    </script>
+</body>
+</html>

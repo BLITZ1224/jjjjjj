@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings | Z-SPACE</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        :root { --primary: #00f2ff; --bg: #050508; --card: #0d1117; }
+        body { background: var(--bg); color: white; font-family: sans-serif; display: flex; justify-content: center; padding-top: 20px; }
+        .container { width: 350px; }
+        .group { background: var(--card); border-radius: 20px; border: 1px solid #222; margin-bottom: 20px; overflow: hidden; }
+        .item { padding: 18px; border-bottom: 1px solid #1a1a1a; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+        .item:last-child { border-bottom: none; }
+        select { background: none; border: none; color: var(--primary); outline: none; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2 style="color: var(--primary); margin-bottom: 25px;">Z-SPACE ENGINE</h2>
+        <div class="group">
+            <div class="item" onclick="location.href='edit-profile.html'"><span><i class="fas fa-user-edit"></i> Edit Profile</span> <i class="fas fa-chevron-right"></i></div>
+            <div class="item" onclick="location.href='security.html'"><span><i class="fas fa-shield-alt"></i> Privacy</span> <i class="fas fa-chevron-right"></i></div>
+        </div>
+        <div class="group">
+            <div class="item">
+                <span><i class="fas fa-volume-up"></i> Alert Sound</span>
+                <select id="sound-in" onchange="save()">
+                    <option value="ding.mp3">Ding</option>
+                    <option value="neon.mp3">Neon</option>
+                    <option value="silent">Silent</option>
+                </select>
+            </div>
+            <div class="item" onclick="clearData()">
+                <span style="color: #ff4b2b;"><i class="fas fa-trash"></i> Clear Storage</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const phone = localStorage.getItem('user_phone');
+        async function save() {
+            const s = document.getElementById('sound-in').value;
+            await fetch('/api/user/update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone, settings: { notiSound: s } })
+            });
+            alert("Sound Preference Saved! 🔊");
+        }
+        function clearData() {
+            if(confirm("Log out and clear all data?")) {
+                localStorage.clear();
+                window.parent.location.href = 'index.html';
+            }
+        }
+    </script>
+</body>
+</html>

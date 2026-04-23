@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Z-SPACE | Messenger</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        :root {
+            --primary: #00f2ff;
+            --bg: #050508;
+            --nav-bg: #0a0a0a;
+            --text-dim: #555;
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Iframe Section */
+        #view-frame {
+            flex: 1;
+            border: none;
+            width: 100%;
+            background: var(--bg);
+        }
+
+        /* Navigation Bar */
+        .bottom-nav {
+            height: 70px;
+            background: var(--nav-bg);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            border-top: 1px solid #111;
+            padding-bottom: env(safe-area-inset-bottom); /* For iPhone Notch */
+        }
+
+        .nav-item {
+            color: var(--text-dim);
+            text-align: center;
+            cursor: pointer;
+            flex: 1;
+            transition: all 0.3s ease;
+            text-decoration: none;
+        }
+
+        .nav-item.active {
+            color: var(--primary);
+        }
+
+        .nav-item i {
+            font-size: 22px;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .nav-item span {
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        /* Active Indicator Glow */
+        .nav-item.active i {
+            text-shadow: 0 0 10px rgba(0, 242, 255, 0.5);
+        }
+    </style>
+</head>
+<body>
+
+    <iframe src="messages.html" id="view-frame" name="view-frame"></iframe>
+
+    <nav class="bottom-nav">
+        <div class="nav-item active" onclick="navigate('messages.html', this)">
+            <i class="fas fa-comment-dots"></i>
+            <span>CHATS</span>
+        </div>
+        
+        <div class="nav-item" onclick="navigate('dashboard.html', this)">
+            <i class="fas fa-user-circle"></i>
+            <span>PROFILE</span>
+        </div>
+
+        <div class="nav-item" onclick="navigate('settings.html', this)">
+            <i class="fas fa-sliders-h"></i>
+            <span>SETTINGS</span>
+        </div>
+    </nav>
+
+    <script>
+        function navigate(page, element) {
+            // Remove active class from all items
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+
+            // Add active class to clicked item
+            element.classList.add('active');
+
+            // Change iframe source
+            const frame = document.getElementById('view-frame');
+            frame.src = page;
+
+            // Save last visited page to LocalStorage (Optional)
+            localStorage.setItem('last_page', page);
+        }
+
+        // On Load: Check if user was on a specific page
+        window.onload = () => {
+            const lastPage = localStorage.getItem('last_page');
+            if (lastPage) {
+                // Find the nav item that matches the last page and set it active
+                const items = document.querySelectorAll('.nav-item');
+                items.forEach(item => {
+                    if (item.getAttribute('onclick').includes(lastPage)) {
+                        navigate(lastPage, item);
+                    }
+                });
+            }
+        };
+    </script>
+</body>
+</html>

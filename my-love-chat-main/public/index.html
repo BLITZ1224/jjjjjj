@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome | Z-SPACE</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        :root { --primary: #00f2ff; --bg: #050508; }
+        body { background: var(--bg); color: white; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .auth-box { width: 320px; background: #0d1117; padding: 40px; border-radius: 30px; border: 1px solid #222; text-align: center; box-shadow: 0 0 20px rgba(0,242,255,0.05); }
+        .logo { font-size: 40px; color: var(--primary); margin-bottom: 20px; text-shadow: 0 0 15px var(--primary); }
+        input { width: 100%; padding: 12px; margin: 10px 0; background: #161b22; border: 1px solid #333; border-radius: 12px; color: white; outline: none; box-sizing: border-box; transition: 0.3s; }
+        input:focus { border-color: var(--primary); }
+        button { width: 100%; padding: 14px; margin-top: 15px; background: var(--primary); border: none; border-radius: 12px; font-weight: bold; cursor: pointer; transition: 0.3s; color: black; }
+        button:hover { transform: scale(1.02); opacity: 0.9; }
+        .toggle { font-size: 12px; margin-top: 15px; color: #555; cursor: pointer; transition: 0.2s; }
+        .toggle:hover { color: var(--primary); }
+    </style>
+</head>
+<body>
+    <div class="auth-box">
+        <div class="logo"><i class="fas fa-atom"></i></div>
+        <h2 id="auth-title">Z-SPACE LOGIN</h2>
+        
+        <input type="text" id="phone" placeholder="Phone Number">
+        <input type="text" id="name" placeholder="Full Name" style="display:none;">
+        <input type="password" id="password" placeholder="Password">
+        
+        <button onclick="handleAuth()" id="btn-text">SIGN IN</button>
+        <div class="toggle" onclick="toggleMode()" id="toggle-text">Don't have an account? Create one</div>
+    </div>
+
+    <script>
+        let isLogin = true;
+
+        function toggleMode() {
+            isLogin = !isLogin;
+            document.getElementById('auth-title').innerText = isLogin ? 'Z-SPACE LOGIN' : 'CREATE ACCOUNT';
+            document.getElementById('name').style.display = isLogin ? 'none' : 'block';
+            document.getElementById('btn-text').innerText = isLogin ? 'SIGN IN' : 'REGISTER';
+            document.getElementById('toggle-text').innerText = isLogin ? "Don't have an account? Create one" : "Already have an account? Sign In";
+        }
+
+        async function handleAuth() {
+            const phone = document.getElementById('phone').value;
+            const password = document.getElementById('password').value;
+            const name = document.getElementById('name').value;
+
+            if(!phone || !password) return alert("Please fill all fields");
+            
+            const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
+            const body = isLogin ? { phone, password } : { phone, password, name };
+
+            try {
+                const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+
+                const data = await res.json();
+                if(data.success) {
+                    if(isLogin) {
+                        localStorage.setItem('token', data.token);
+                        localStorage.setItem('user_phone', data.user.phone);
+                        // 🔥 Redirect ကို Dashboard ဆီ ပြောင်းထားတယ်
+                        window.location.href = '/dashboard';
+                    } else {
+                        alert("Account Created! Now Login.");
+                        toggleMode();
+                    }
+                } else { 
+                    alert(data.error || "Something went wrong"); 
+                }
+            } catch (err) {
+                alert("Server Connection Error!");
+            }
+        }
+    </script>
+</body>
+</html>

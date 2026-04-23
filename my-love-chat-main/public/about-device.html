@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About Device | Z-SPACE</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        :root { --primary: #00f2ff; --bg: #050508; --card-bg: #0a1214; }
+        body { margin: 0; background: var(--bg); color: white; font-family: sans-serif; display: flex; justify-content: center; padding-top: 30px; }
+        
+        .container { width: 340px; padding: 15px; }
+        .header { display: flex; align-items: center; gap: 15px; margin-bottom: 30px; }
+        .header a { color: white; text-decoration: none; font-size: 18px; }
+
+        /* Device Card */
+        .device-card { 
+            background: var(--card-bg); padding: 25px; border-radius: 20px; 
+            text-align: center; border: 1px solid #111; margin-bottom: 20px;
+        }
+        .device-icon { font-size: 50px; color: var(--primary); margin-bottom: 15px; }
+        .device-card h3 { margin: 10px 0 5px; font-size: 18px; }
+        .device-card p { margin: 0; font-size: 12px; color: #555; }
+
+        .info-list { background: var(--card-bg); border-radius: 15px; overflow: hidden; border: 1px solid #111; }
+        .info-item { 
+            display: flex; justify-content: space-between; padding: 15px 20px; 
+            border-bottom: 1px solid #050508; font-size: 13px; 
+        }
+        .info-item:last-child { border-bottom: none; }
+        .label { color: #555; }
+        .value { color: var(--primary); font-weight: bold; }
+
+        .status-badge { background: rgba(0, 242, 255, 0.1); color: var(--primary); padding: 4px 10px; border-radius: 10px; font-size: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="header">
+            <a href="settings.html"><i class="fas fa-arrow-left"></i></a>
+            <h3 style="margin:0;">Device Information</h3>
+        </div>
+
+        <div class="device-card">
+            <div class="device-icon" id="dev-icon"><i class="fas fa-mobile-alt"></i></div>
+            <h3 id="os-name">Detecting OS...</h3>
+            <p>Current Active Session</p>
+        </div>
+
+        <div class="info-list">
+            <div class="info-item">
+                <span class="label">Browser</span>
+                <span class="value" id="browser-name">Unknown</span>
+            </div>
+            <div class="info-item">
+                <span class="label">Platform</span>
+                <span class="value" id="platform-name">Unknown</span>
+            </div>
+            <div class="info-item">
+                <span class="label">Screen Resolution</span>
+                <span class="value" id="screen-res">0 x 0</span>
+            </div>
+            <div class="info-item">
+                <span class="label">Connection Status</span>
+                <span class="status-badge">ONLINE</span>
+            </div>
+        </div>
+        
+        <p style="text-align: center; color: #333; font-size: 11px; margin-top: 20px;">
+            This device is authorized to access Z-SPACE Engine.
+        </p>
+    </div>
+
+    <script>
+        window.onload = () => {
+            const ua = navigator.userAgent;
+            let os = "Unknown OS";
+            let browser = "Unknown Browser";
+
+            // Detect OS
+            if (ua.indexOf("Win") != -1) { os = "Windows"; document.getElementById('dev-icon').innerHTML = '<i class="fas fa-laptop"></i>'; }
+            if (ua.indexOf("Mac") != -1) { os = "MacOS"; document.getElementById('dev-icon').innerHTML = '<i class="fas fa-laptop"></i>'; }
+            if (ua.indexOf("Android") != -1) { os = "Android"; document.getElementById('dev-icon').innerHTML = '<i class="fas fa-mobile-alt"></i>'; }
+            if (ua.indexOf("like Mac") != -1) { os = "iOS"; document.getElementById('dev-icon').innerHTML = '<i class="fas fa-mobile-alt"></i>'; }
+
+            // Detect Browser
+            if (ua.indexOf("Chrome") != -1) browser = "Google Chrome";
+            else if (ua.indexOf("Firefox") != -1) browser = "Mozilla Firefox";
+            else if (ua.indexOf("Safari") != -1) browser = "Safari";
+
+            document.getElementById('os-name').innerText = os;
+            document.getElementById('browser-name').innerText = browser;
+            document.getElementById('platform-name').innerText = navigator.platform;
+            document.getElementById('screen-res').innerText = window.screen.width + " x " + window.screen.height;
+        };
+    </script>
+</body>
+</html>

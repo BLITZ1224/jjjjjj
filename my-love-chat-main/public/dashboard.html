@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | Z-SPACE</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        :root { --primary: #00f2ff; --bg: #050508; --card: #0d1117; }
+        body { background: var(--bg); color: white; font-family: sans-serif; margin: 0; padding: 20px; box-sizing: border-box; }
+        
+        .profile-card { background: var(--card); padding: 25px; border-radius: 25px; border: 1px solid #222; text-align: center; position: relative; box-shadow: 0 10px 30px rgba(0,0,0,0.5); margin-bottom: 20px; }
+        .avatar { width: 90px; height: 90px; border-radius: 50%; border: 3px solid var(--primary); object-fit: cover; background: #222; box-shadow: 0 0 15px rgba(0,242,255,0.2); }
+        .verify-badge { color: var(--primary); font-size: 14px; margin-left: 5px; vertical-align: middle; }
+        
+        .wallet-section { display: flex; justify-content: space-around; margin-top: 25px; background: #161b22; padding: 15px; border-radius: 20px; border: 1px solid #222; }
+        .wallet-box { flex: 1; cursor: pointer; transition: 0.3s; }
+        .wallet-box:active { transform: scale(0.95); }
+        .wallet-box h3 { margin: 0; color: var(--primary); font-size: 20px; }
+        .wallet-box span { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+
+        .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .menu-item { background: var(--card); padding: 25px 15px; border-radius: 20px; text-align: center; border: 1px solid #222; text-decoration: none; color: white; transition: 0.3s; }
+        .menu-item:hover { border-color: var(--primary); background: #1a1f26; transform: translateY(-3px); }
+        .menu-item i { font-size: 26px; color: var(--primary); margin-bottom: 12px; display: block; }
+        .menu-item span { font-size: 14px; font-weight: 500; }
+    </style>
+</head>
+<body>
+
+    <div class="profile-card">
+        <img id="user-avatar" src="https://via.placeholder.com/150" class="avatar" alt="Profile">
+        <h2 id="user-name">Loading... <i id="v-badge" class="fas fa-check-circle verify-badge" style="display:none;"></i></h2>
+        <p id="user-phone" style="color:#888; margin-top: -10px; font-size: 14px;"></p>
+
+        <div class="wallet-section">
+            <div class="wallet-box">
+                <h3 id="balance">0</h3>
+                <span>Z-Coins</span>
+            </div>
+            <div class="wallet-box" onclick="buyVerify()">
+                <h3 style="color: #ffcc00;"><i class="fas fa-gem"></i></h3>
+                <span>Get Pro</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="menu-grid">
+        <a href="/messages" class="menu-item">
+            <i class="fas fa-comment-alt"></i>
+            <span>Messages</span>
+        </a>
+        <a href="/edit-profile" class="menu-item">
+            <i class="fas fa-user-edit"></i>
+            <span>Profile</span>
+        </a>
+        <a href="/settings" class="menu-item">
+            <i class="fas fa-cog"></i>
+            <span>Settings</span>
+        </a>
+        <a href="#" class="menu-item" onclick="logout()">
+            <i class="fas fa-sign-out-alt" style="color: #ff4b2b;"></i>
+            <span>Logout</span>
+        </a>
+    </div>
+
+    <script>
+        const phone = localStorage.getItem('user_phone');
+        const token = localStorage.getItem('token');
+
+        // Security Check
+        if (!phone || !token) {
+            window.location.href = '/'; 
+        }
+
+        async function loadProfile() {
+            try {
+                // Backend API သို့ လှမ်းတောင်းခြင်း
+                const res = await fetch(`/api/user/${phone}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!res.ok) {
+                    // Token သက်တမ်းကုန်ရင် ဒါမှမဟုတ် user ရှာမတွေ့ရင် logout လုပ်မယ်
+                    localStorage.clear();
+                    window.location.href = '/';
+                    return;
+                }
+                
+                const user = await res.json();
+                
+                // UI မှာ ဒေတာတွေ ထည့်သွင်းခြင်း
+                document.getElementById('user-name').firstChild.nodeValue = user.name + " ";
+                document.getElementById('user-phone').innerText = user.phone;
+                document.getElementById('user-avatar').src = user.avatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=" + user.phone;
+                document.getElementById('balance').innerText = user.wallet?.balance || 0;
+                
+                if(user.isVerified) {
+                    document.getElementById('v-badge').style.display = 'inline-block';
+                }
+
+            } catch (err) {
+                console.error("Profile Load Error:", err);
+                // Error ဖြစ်ရင် ချက်ချင်း logout မလုပ်ဘဲ loading ဆက်ပြထားမယ်
+            }
+        }
+
+        function buyVerify() {
+            if(confirm("Upgrade to Z-SPACE PRO for 5000 Z-Coins?")) {
+                alert("Insufficient Balance! Please top up your Z-Coins.");
+            }
+        }
+
+        function logout() {
+            if(confirm("Are you sure you want to logout?")) {
+                localStorage.clear();
+                window.location.href = '/';
+            }
+        }
+
+        // စာမျက်နှာ စတက်တာနဲ့ အချက်အလက် ဆွဲယူမယ်
+        loadProfile();
+    </script>
+</body>
+</html>
