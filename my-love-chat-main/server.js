@@ -23,7 +23,7 @@ const io = new Server(server, {
     }
 });
 
-// ✅ Helmet CSP Fix: Call နှင့် Media များ အဆင်ပြေစေရန်
+// ✅ Helmet Security Config
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
@@ -40,7 +40,7 @@ app.use(helmet({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = process.env.JWT_SECRET || 'your_fallback_secret';
 const MONGO_URI = process.env.MONGODB_URI;
 
 // Cloudinary Config
@@ -52,11 +52,10 @@ cloudinary.config({
 });
 
 const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20 });
-const sendLimiter = rateLimit({ windowMs: 60 * 1000, max: 100 });
 
 // MongoDB Connection
 mongoose.connect(MONGO_URI)
-    .then(() => console.log("✅ MongoDB ချိတ်ဆက်မှု အောင်မြင်သည်!"))
+    .then(() => console.log("✅ MongoDB Connected Successfully!"))
     .catch(err => console.error("❌ DB Error:", err));
 
 // --- Models ---
@@ -66,8 +65,7 @@ const userSchema = new mongoose.Schema({
     password: { type: String, required: true },
     avatar: { type: String },
     bio: { type: String },
-    wallet: { balance: { type: Number, default: 0 } },
-    isVerified: { type: Boolean, default: false }
+    wallet: { balance: { type: Number, default: 0 } }
 }, { timestamps: true });
 
 const User = mongoose.model('User', userSchema);
@@ -104,7 +102,7 @@ function requireAuth(req, res, next) {
     } catch (err) { res.status(401).json({ error: 'Invalid token' }); }
 }
 
-// --- Routes ---
+// --- API Routes ---
 app.post('/api/auth/register', async (req, res) => {
     try {
         const { phone, password, name } = req.body;
@@ -129,7 +127,7 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
 app.get('/api/user/:phone', requireAuth, async (req, res) => {
     try {
         const user = await User.findOne({ phone: req.params.phone }).select('-password');
-        if (!user) return res.status(404).json({ error: "Not found" });
+        if (!user) return res.status(404).json({ error: "User not found" });
         res.json(user);
     } catch (e) { res.status(500).json({ error: "Server error" }); }
 });
@@ -142,27 +140,7 @@ app.get('/api/messages/:myPhone/:peerPhone', requireAuth, async (req, res) => {
     } catch (e) { res.status(500).json({ error: "Load failed" }); }
 });
 
-app.post('/api/send', sendLimiter, requireAuth, async (req, res) => {
-    try {
-        const { receiver, text, type = 'text' } = req.body;
-        const senderPhone = req.user.phone;
-        let finalContent = text;
-        
-        if (type === 'audio') {
-            finalContent = await uploadBase64ToCloudinary(text, 'zspace/voice');
-        }
-
-        const msg = await Message.create({
-            conversationId: getConversationId(senderPhone, receiver),
-            senderPhone, receiverPhone: receiver, text: finalContent, type
-        });
-
-        io.to(receiver).to(senderPhone).emit('new-message', msg);
-        res.status(201).json({ success: true, message: msg });
-    } catch (e) { res.status(500).json({ error: "Send failed" }); }
-});
-
-// HTML Routing
+// --- HTML Routing ---
 app.get(['/dashboard', '/messages', '/settings', '/edit-profile', '/call'], (req, res) => {
     const page = req.path.split('/')[1];
     res.sendFile(path.join(__dirname, 'public', `${page}.html`));
@@ -173,7 +151,7 @@ app.use((req, res, next) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// --- Socket.io Logic (Video Call & Messaging) ---
+// --- Socket.io Middleware ---
 io.use((socket, next) => {
     const token = socket.handshake.auth?.token;
     if (!token) return next(new Error('Auth error'));
@@ -183,16 +161,60 @@ io.use((socket, next) => {
     } catch (e) { next(new Error('Auth error')); }
 });
 
+// --- Socket.io Connection Logic ---
 io.on('connection', (socket) => {
     const myPhone = socket.user.phone;
     socket.join(myPhone);
+    console.log(`🚀 User Connected: ${myPhone}`);
 
-    // Call Signaling
+    // ၁။ စာပို့ခြင်း (Real-time Messaging)
+    socket.on('send-message', async (data) => {
+        try {
+            const { receiver, text, type = 'text' } = data;
+            let finalContent = text;
+
+            if (type === 'audio') {
+                finalContent = await uploadBase64ToCloudinary(text, 'mylovechat/voice');
+            }
+
+            const msg = await Message.create({
+                conversationId: getConversationId(myPhone, receiver),
+                senderPhone: myPhone,
+                receiverPhone: receiver,
+                text: finalContent,
+                type
+            });
+
+            // ပို့သူရော လက်ခံသူဆီပါ update ပို့ပေးမယ်
+            io.to(receiver).to(myPhone).emit('new-message', msg);
+        } catch (e) {
+            console.error("Msg Error:", e);
+        }
+    });
+
+    // ၂။ Typing Status
+    socket.on('typing', (data) => {
+        socket.to(data.receiver).emit('is_typing', { sender: myPhone });
+    });
+
+    // ၃။ Mark Seen Logic
+    socket.on('mark_seen', async (data) => {
+        try {
+            const cid = getConversationId(myPhone, data.sender);
+            await Message.updateMany(
+                { conversationId: cid, receiverPhone: myPhone, isSeen: false }, 
+                { isSeen: true }
+            );
+            socket.to(data.sender).emit('messages_read', { by: myPhone });
+        } catch (e) { console.error("Seen Error:", e); }
+    });
+
+    // ၄။ Call Signaling
     socket.on('call-user', (data) => {
         io.to(data.userToCall).emit('incoming-call', { 
             signal: data.signalData, 
             from: myPhone, 
-            type: data.type // 'video' or 'voice'
+            type: data.type 
         });
     });
 
@@ -204,17 +226,6 @@ io.on('connection', (socket) => {
         io.to(data.to).emit('call-ended');
     });
 
-    // Chat Status
-    socket.on('typing', (data) => {
-        socket.to(data.receiver).emit('is_typing', { sender: myPhone });
-    });
-
-    socket.on('mark_seen', async (data) => {
-        const cid = getConversationId(myPhone, data.sender);
-        await Message.updateMany({ conversationId: cid, receiverPhone: myPhone }, { isSeen: true });
-        socket.to(data.sender).emit('messages_read', { by: myPhone });
-    });
-
     socket.on('disconnect', () => {
         console.log(`🔥 User Offline: ${myPhone}`);
     });
@@ -222,5 +233,5 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(`🚀 Z-SPACE Server running on port ${PORT}`);
+    console.log(`🚀 Server running on port ${PORT}`);
 });
